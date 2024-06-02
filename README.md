@@ -51,3 +51,46 @@ Upload the collected data to your S3 bucket using AWS Management Console, AWS CL
 
 ```bash
 aws s3 cp local-data-file.csv s3://your-bucket-name/path/to/data/
+
+
+import sys
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+
+# Load data from S3
+datasource = glueContext.create_dynamic_frame.from_options(
+    connection_type = "s3", 
+    connection_options = {"paths": ["s3://your-bucket-name/path/to/data/"]}, 
+    format = "csv"
+)
+
+# Transform data
+transformed_data = ApplyMapping.apply(
+    frame = datasource, 
+    mappings = [
+        ("column1", "string", "column1", "string"),
+        ("column2", "int", "column2", "int"),
+        # Add more mappings as required
+    ]
+)
+
+# Write data to S3
+glueContext.write_dynamic_frame.from_options(
+    frame = transformed_data, 
+    connection_type = "s3", 
+    connection_options = {"path": "s3://your-bucket-name/path/to/transformed/data/"},
+    format = "csv"
+)
+
+job.commit()
+
